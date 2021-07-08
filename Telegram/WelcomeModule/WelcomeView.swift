@@ -32,6 +32,7 @@ class WelcomeView: View {
     }
     // MARK: - Action
     @IBAction private func onRegister(sender: UIButton) {
+        // something
         presenter.onRegister(email: email, password: password)
     }
     
