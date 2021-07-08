@@ -7,31 +7,30 @@
 
 import UIKit
 import CoreData
+import Firebase
+import FirebaseMessaging
+import AppCenter
+import AppCenterAnalytics
+import AppCenterCrashes
+
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
-
-
+    static var shared = {
+        return UIApplication.shared.delegate as! AppDelegate
+    }()
+    var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        FirebaseApp.configure()
+        requestPushNotificationPermission(application: application)
+        AppCenter.start(withAppSecret: "2d1bf733-6fb8-4c70-9adc-41a2d6a3e80f", services:[
+          Analytics.self,
+          Crashes.self
+        ])
         return true
     }
-
-    // MARK: UISceneSession Lifecycle
-
-    func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        // Called when a new scene session is being created.
-        // Use this method to select a configuration to create the new scene with.
-        return UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
-    }
-
-    func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
-        // Called when the user discards a scene session.
-        // If any sessions were discarded while the application was not running, this will be called shortly after application:didFinishLaunchingWithOptions.
-        // Use this method to release any resources that were specific to the discarded scenes, as they will not return.
-    }
-
     // MARK: - Core Data stack
 
     lazy var persistentContainer: NSPersistentContainer = {
@@ -79,3 +78,43 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 }
 
+// MARK: - UNUserNotificationCenterDelegate
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    private func requestPushNotificationPermission(application: UIApplication) {
+        Messaging.messaging().delegate = self
+        UNUserNotificationCenter.current().delegate = self
+        let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
+        UNUserNotificationCenter.current().requestAuthorization(options: authOptions) { success, error in
+            
+        }
+        application.registerForRemoteNotifications()
+    }
+    
+    func application(application: UIApplication, didReceiveRemoteNotification userInfo: [NSObject : AnyObject], fetchCompletionHandler completionHandler: (UIBackgroundFetchResult) -> Void) {
+        completionHandler(UIBackgroundFetchResult.newData)
+    }
+    
+    
+    private func updateUserPushID(newPushID: String) {
+        
+        if var user = User.current {
+            user.pushId = newPushID
+            User.save(user: user)
+        } else {
+            UserDefaults.standard.save(withKey: K.fcm, value: newPushID)
+        }
+    }
+    
+   
+
+}
+
+// MARK: - <#Mark#>
+
+extension AppDelegate: MessagingDelegate {
+    
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        updateUserPushID(newPushID: fcmToken ?? "")
+    }
+}
